@@ -16,7 +16,37 @@ import joblib
 import re
 
 
-def process_df(df):
+def conver_schedule_df(schedule_list) -> pd.DataFrame:
+    col = ['season', 'date', 'kick_off', 'status', 'home_team',
+           'home_team_id', 'final_score', 'away_team', 'away_team_id', 'match_url']
+    df = pd.DataFrame(schedule_list, columns=col)
+
+    df['date'] = df['date'].astype(str)
+    df['home_team_id'] = df['home_team_id'].astype(int)
+    df['away_team_id'] = df['away_team_id'].astype(int)
+    df['match_id'] = df['match_url'].str.split('/', expand=True)[4].astype(int)
+    df.sort_values(['season', 'date', 'kick_off'], ascending=False, inplace=True)
+
+    return df
+
+
+def convert_match_stats_df(match_stats_list) -> pd.DataFrame:
+    match_sum_col = ['match_id', 'season', 'date', 'kick_off', 'home_team', 'home_team_id', 'away_team', 'away_team_id',
+                     'final_score',
+                     'half_time_score', 'full_time_score', 'home_formation', 'away_formation', 'is_home_player']
+    sum_col = ['player_name', 'player_id', 'age', 'position', 'DuelAerialWon', 'Touches', 'rating']
+    off_col = ['ShotsTotal', 'ShotOnTarget', 'DribbleWon', 'FoulGiven',
+               'OffsideGiven', 'Dispossessed', 'Turnover']
+    def_col = ['TackleWonTotal', 'InterceptionAll', 'ClearanceTotal', 'ShotBlocked', 'FoulCommitted']
+    pass_col = ['KeyPassTotal', 'TotalPasses', 'PassSuccessInMatch', 'PassCrossTotal', 'PassCrossAccurate',
+                'PassLongBallTotal', 'PassLongBallAccurate', 'PassThroughBallTotal', 'PassThroughBallAccurate']
+    all_col = match_sum_col + sum_col + off_col + def_col + pass_col + ['url']
+    df = pd.DataFrame(match_stats_list, columns=all_col)
+
+    return process_df(df)
+
+
+def process_stats_df(df):
     '''Replace "-" with 0s and change data type to int or float accordingly  '''
 
     mapping = {'-': 0}
@@ -308,19 +338,7 @@ def scrape_schedule_multi_season(seasons_list=None, url=None, driver=None, optio
     return all_schedule_list, season_missed
 
 
-def conver_schedule_df(schedule_list) -> pd.DataFrame:
-    col = ['season', 'date', 'kick_off', 'status', 'home_team',
-           'home_team_id', 'final_score', 'away_team', 'away_team_id', 'match_url']
-    df = pd.DataFrame(schedule_list, columns=col)
-
-    df['date'] = df['date'].astype(str)
-    df['home_team_id'] = df['home_team_id'].astype(int)
-    df['away_team_id'] = df['away_team_id'].astype(int)
-    df['match_id'] = df['match_url'].str.split('/', expand=True)[4].astype(int)
-    df.sort_values(['season', 'date', 'kick_off'], ascending=False, inplace=True)
-
-    return df
-
+# Scrape player match stats
 
 def scrape_incidents_single_match(url=None, season=None, driver=None, options=None, url_loaded=False) -> list:
     if options is None:
@@ -520,7 +538,6 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
     player_stats_page.click()
 
     ## Player Stats
-
     # loop through home and away stats
     for side in ['home', 'away']:
         if side == 'home':
@@ -529,38 +546,29 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
             side_xpath_index = 3
 
         sum_stats_body_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[2]/div[2]/div/table/tbody'
-
         off_stats_body_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[4]/div[2]/div/table/tbody'
-
         def_stats_body_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[3]/div[2]/div/table/tbody'
-
         pass_stats_body_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[5]/div[2]/div/table/tbody'
-
         sum_button_selector = f'#live-player-{side}-options > li:nth-child(1) > a'
         off_button_selector = f'#live-player-{side}-options > li:nth-child(2) > a'
         def_button_selector = f'#live-player-{side}-options > li:nth-child(3) > a'
         pass_button_selector = f'#live-player-{side}-options > li:nth-child(4) > a'
-
         sum_button_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[1]/ul/li[1]/a'
         off_button_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[1]/ul/li[2]/a'
         def_button_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[1]/ul/li[3]/a'
         pass_button_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[1]/ul/li[4]/a'
-
         sum_table_selector = f'#statistics-table-{side}-summary'
         off_table_selector = f'#statistics-table-{side}-offensive'
         def_table_selector = f'#statistics-table-{side}-defensive'
         pass_table_selector = f'#statistics-table-{side}-passing'
-
         stats_body_selector = '#player-table-statistics-body'
 
         #### Summary
         summary_button = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, sum_button_selector)))
         summary_button.click()
-
         sum_table = WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, sum_table_selector)))
-
         sum_stats_body = WebDriverWait(sum_table, 5).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, stats_body_selector)))
         row_elem_list = WebDriverWait(sum_stats_body, 15).until(
@@ -578,12 +586,11 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
 
             sum_arr += [[player_name, player_id, age, position, DuelAerialWon, Touches, rating]]
         sum_arr = np.array(sum_arr)
-        #### Offensive
 
+        #### Offensive
         off_button = WebDriverWait(driver, 5).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, off_button_selector)))
         off_button.click()
-
         off_table = WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, off_table_selector)))
         off_stats_body = WebDriverWait(off_table, 15).until(
@@ -627,21 +634,18 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
             FoulCommitted = row.find_element(By.CLASS_NAME, 'FoulCommitted').text
 
             def_arr += [[TackleWonTotal, InterceptionAll, ClearanceTotal, ShotBlocked, FoulCommitted]]
-
         def_arr = np.array(def_arr)
-        #### Passing
 
+        #### Passing
         pass_button = WebDriverWait(driver, 5).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, pass_button_selector)))
         pass_button.click()
-
         pass_table = WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, pass_table_selector)))
         pass_stats_body = WebDriverWait(pass_table, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, stats_body_selector)))
         row_elem_list = WebDriverWait(pass_stats_body, 15).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'tr')))
-
         pass_arr = []
         for row in row_elem_list:
             KeyPassTotal = row.find_element(By.CLASS_NAME, 'KeyPassTotal').text
@@ -743,17 +747,25 @@ def scrape_player_stats_full_season(season=None, driver=None, options=None, supe
     return full_season_match_list, url_missed
 
 
-def convert_match_stats_df(match_stats_list) -> pd.DataFrame:
-    match_sum_col = ['match_id', 'season', 'date', 'kick_off', 'home_team', 'home_team_id', 'away_team', 'away_team_id',
-                     'final_score',
-                     'half_time_score', 'full_time_score', 'home_formation', 'away_formation', 'is_home_player']
-    sum_col = ['player_name', 'player_id', 'age', 'position', 'DuelAerialWon', 'Touches', 'rating']
-    off_col = ['ShotsTotal', 'ShotOnTarget', 'DribbleWon', 'FoulGiven',
-               'OffsideGiven', 'Dispossessed', 'Turnover']
-    def_col = ['TackleWonTotal', 'InterceptionAll', 'ClearanceTotal', 'ShotBlocked', 'FoulCommitted']
-    pass_col = ['KeyPassTotal', 'TotalPasses', 'PassSuccessInMatch', 'PassCrossTotal', 'PassCrossAccurate',
-                'PassLongBallTotal', 'PassLongBallAccurate', 'PassThroughBallTotal', 'PassThroughBallAccurate']
-    all_col = match_sum_col + sum_col + off_col + def_col + pass_col + ['url']
-    df = pd.DataFrame(match_stats_list, columns=all_col)
+def player_stats_super_scrape(driver=None, options=None, supervised=True, url_list=None, chunk_size=400) -> list:
+    if options is None:
+        options = webdriver.ChromeOptions()
+        options.add_argument('log-level=3')
+        # options.add_argument("--headless")
+    if driver is None:
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    all_scraped_list = []
+    all_missed_list = []
+    chunked_list = [url_list[i:i + chunk_size] for i in range(0, len(url_list), chunk_size)]
+    for chunk in tqdm(chunked_list):
+        try:
+            driver.current_url
+        except:
+            print("Driver closed. Scraping stopped.")
+            break
+        scraped_list, missed_list = scrape_player_stats_full_season(driver=driver, options=options,
+                                                                    supervised=supervised, url_list=chunk)
+        all_scraped_list += scraped_list
+        all_missed_list += missed_list
 
-    return process_df(df)
+    return all_scraped_list, all_missed_list
