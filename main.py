@@ -757,7 +757,7 @@ def player_stats_super_scrape(driver=None, options=None, supervised=True, url_li
     all_scraped_list = []
     all_missed_list = []
     chunked_list = [url_list[i:i + chunk_size] for i in range(0, len(url_list), chunk_size)]
-    for chunk in tqdm(chunked_list):
+    for i, chunk in enumerate(tqdm(chunked_list)):
         try:
             driver.current_url
         except:
@@ -768,4 +768,8 @@ def player_stats_super_scrape(driver=None, options=None, supervised=True, url_li
         all_scraped_list += scraped_list
         all_missed_list += missed_list
 
+    if i != len(chunked_list) - 1:
+        for ii in range(len(chunked_list) - 1 - i):
+            all_missed_list += chunked_list[i + ii + 1]
+    print(f"Super scrape complete. Success: {len(all_scraped_list)}. Missed: {len(all_missed_list)}")
     return all_scraped_list, all_missed_list
