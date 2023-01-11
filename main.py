@@ -15,53 +15,57 @@ import time
 import joblib
 import re
 
+def convert_incident_df(incidents_list) -> pd.DataFrame:
+    df = pd.DataFrame(incidents_list, columns=[
+        'player_name', 'is_home', 'incident_type', 'incident_minute', 
+        'incident_second', 'player_id', 'team_id', 'season', 'description', 'url'
+    ])
+    df['match_id'] = df['url'].str.split('/', expand=True)[4]
+    return df
 
-def conver_schedule_df(schedule_list) -> pd.DataFrame:
-    col = ['season', 'date', 'kick_off', 'status', 'home_team',
+def convert_schedule_df(schedule_list) -> pd.DataFrame:
+    col = ['season', 'date', 'kick_off', 'status', 'home_team', 
            'home_team_id', 'final_score', 'away_team', 'away_team_id', 'match_url']
     df = pd.DataFrame(schedule_list, columns=col)
-
+    
     df['date'] = df['date'].astype(str)
     df['home_team_id'] = df['home_team_id'].astype(int)
     df['away_team_id'] = df['away_team_id'].astype(int)
     df['match_id'] = df['match_url'].str.split('/', expand=True)[4].astype(int)
     df.sort_values(['season', 'date', 'kick_off'], ascending=False, inplace=True)
-
+    
     return df
 
-
 def convert_match_stats_df(match_stats_list) -> pd.DataFrame:
-    match_sum_col = ['match_id', 'season', 'date', 'kick_off', 'home_team', 'home_team_id', 'away_team', 'away_team_id',
-                     'final_score',
+    match_sum_col = ['match_id', 'season', 'date', 'kick_off', 'home_team', 'home_team_id', 'away_team', 'away_team_id', 'final_score', 
                      'half_time_score', 'full_time_score', 'home_formation', 'away_formation', 'is_home_player']
     sum_col = ['player_name', 'player_id', 'age', 'position', 'DuelAerialWon', 'Touches', 'rating']
-    off_col = ['ShotsTotal', 'ShotOnTarget', 'DribbleWon', 'FoulGiven',
+    off_col = ['ShotsTotal', 'ShotOnTarget', 'DribbleWon', 'FoulGiven', 
                'OffsideGiven', 'Dispossessed', 'Turnover']
     def_col = ['TackleWonTotal', 'InterceptionAll', 'ClearanceTotal', 'ShotBlocked', 'FoulCommitted']
-    pass_col = ['KeyPassTotal', 'TotalPasses', 'PassSuccessInMatch', 'PassCrossTotal', 'PassCrossAccurate',
+    pass_col = ['KeyPassTotal', 'TotalPasses', 'PassSuccessInMatch', 'PassCrossTotal', 'PassCrossAccurate', 
                 'PassLongBallTotal', 'PassLongBallAccurate', 'PassThroughBallTotal', 'PassThroughBallAccurate']
     all_col = match_sum_col + sum_col + off_col + def_col + pass_col + ['url']
     df = pd.DataFrame(match_stats_list, columns=all_col)
-
-    return process_df(df)
-
+    
+    return df
 
 def process_stats_df(df):
     '''Replace "-" with 0s and change data type to int or float accordingly  '''
-
-    mapping = {'-': 0}
-
+    
+    mapping = {'-': 0} 
+    
     replace_dict = {}
-
+    
     num_cols = [
-        'match_id', 'home_team_id', 'away_team_id', 'player_id', 'age', 'DuelAerialWon',
-        'Touches', 'rating', 'ShotsTotal', 'ShotOnTarget', 'DribbleWon', 'FoulGiven',
-        'OffsideGiven', 'Dispossessed', 'Turnover', 'TackleWonTotal', 'InterceptionAll',
-        'ClearanceTotal', 'ShotBlocked', 'FoulCommitted', 'KeyPassTotal', 'TotalPasses',
-        'PassSuccessInMatch', 'PassCrossTotal', 'PassCrossAccurate', 'PassLongBallTotal',
-        'PassLongBallAccurate', 'PassThroughBallTotal', 'PassThroughBallAccurate'
+                'match_id', 'home_team_id', 'away_team_id', 'player_id', 'age', 'DuelAerialWon',
+                'Touches', 'rating', 'ShotsTotal', 'ShotOnTarget', 'DribbleWon', 'FoulGiven', 
+                'OffsideGiven', 'Dispossessed', 'Turnover', 'TackleWonTotal', 'InterceptionAll', 
+                'ClearanceTotal', 'ShotBlocked', 'FoulCommitted', 'KeyPassTotal', 'TotalPasses', 
+                'PassSuccessInMatch', 'PassCrossTotal', 'PassCrossAccurate', 'PassLongBallTotal',
+                'PassLongBallAccurate', 'PassThroughBallTotal', 'PassThroughBallAccurate'
     ]
-
+    
     for col in df.columns:
         replace_dict[col] = mapping
         if col in num_cols:
@@ -72,12 +76,12 @@ def process_stats_df(df):
                     df[col] = df[col].astype(float)
                 except:
                     continue
-
+                
     df['date'] = pd.to_datetime(df['date']).astype(str)
     df = df.sort_values(['date', 'kick_off', 'match_id'])
-
+    df.reset_index(drop=True, inplace=True)
+            
     return df.replace(replace_dict)
-
 
 def scrape_team_url(url, driver=None, options=None, url_loaded=False) -> list:
     '''Accept league url and return team url'''
@@ -91,18 +95,15 @@ def scrape_team_url(url, driver=None, options=None, url_loaded=False) -> list:
         driver.get(url)
     else:
         url = driver.current_url
-
-    team_stats_button = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, '#sub-navigation > ul > li:nth-child(3) > a')))
+        
+    team_stats_button = WebDriverWait(driver,10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '#sub-navigation > ul > li:nth-child(3) > a')))
     team_stats_button.click()
 
-    team_table = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, '#top-team-stats-summary-content')))
+    team_table = WebDriverWait(driver,10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '#top-team-stats-summary-content')))
 
     team_elem_list = team_table.find_elements(By.TAG_NAME, 'a')
 
     return [a.get_attribute('href') for a in team_elem_list]
-
 
 def scrape_league_url(driver=None, options=None):
     if options is None:
@@ -143,13 +144,12 @@ def scrape_league_url(driver=None, options=None):
                     region_url_list.append(url)
                 else:
                     regions_dict[sub_regions_list[count]] = region_url_list
-                    count += 1
+                    count+=1
                     region_url_list = []
                     region_url_list.append(url)
                 prev_id = region_id
                 regions_dict[sub_regions_list[count]] = region_url_list
     return regions_dict
-
 
 def scrape_schedule_single_season(season=None, url=None, driver=None, options=None, url_loaded=False) -> pd.DataFrame:
     '''Scrape schedules of a given league, return DataFrame'''
@@ -172,8 +172,7 @@ def scrape_schedule_single_season(season=None, url=None, driver=None, options=No
             break
         else:
             continue
-    date_controller = \
-    WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '#date-controller')))[0]
+    date_controller = WebDriverWait(driver,15).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '#date-controller')))[0]
     prev_week_button = date_controller.find_elements(By.TAG_NAME, 'a')[0]
     next_week_button = date_controller.find_elements(By.TAG_NAME, 'a')[2]
     no_data_list = [
@@ -192,80 +191,65 @@ def scrape_schedule_single_season(season=None, url=None, driver=None, options=No
     keep_clicking = True
     while keep_clicking:
         try:
-            match_table = WebDriverWait(driver, 15).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, '#tournament-fixture > div')))[0]
-            rows = WebDriverWait(match_table, 15).until(
-                EC.presence_of_all_elements_located((By.CLASS_NAME, 'divtable-row')))
+            match_table = WebDriverWait(driver,15).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '#tournament-fixture > div')))[0]
+            rows = WebDriverWait(match_table,15).until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'divtable-row')))
             week_list = []
             for row in rows:
                 try:
                     date = pd.to_datetime(row.text).date()
                 except:
-                    kick_off = WebDriverWait(row, 5).until(EC.presence_of_element_located((By.CLASS_NAME, 'time'))).text
+                    kick_off = WebDriverWait(row,5).until(EC.presence_of_element_located((By.CLASS_NAME, 'time'))).text
 
-                    status = WebDriverWait(row, 5).until(EC.presence_of_element_located((By.CLASS_NAME, 'status'))).text
+                    status = WebDriverWait(row,5).until(EC.presence_of_element_located((By.CLASS_NAME, 'status'))).text
                     if status == ' ':
                         status = 'upcoming'
 
-                    home_team_elem = WebDriverWait(row, 5).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, 'home'))).find_element(By.TAG_NAME, 'a')
+                    home_team_elem = WebDriverWait(row,5).until(EC.presence_of_element_located((By.CLASS_NAME, 'home'))).find_element(By.TAG_NAME, 'a')
                     home_team = home_team_elem.text
                     home_team_id = home_team_elem.get_attribute('href').split('/')[4]
 
-                    away_team_elem = WebDriverWait(row, 5).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, 'away'))).find_element(By.TAG_NAME, 'a')
+                    away_team_elem = WebDriverWait(row,5).until(EC.presence_of_element_located((By.CLASS_NAME, 'away'))).find_element(By.TAG_NAME, 'a')
                     away_team = away_team_elem.text
                     away_team_id = away_team_elem.get_attribute('href').split('/')[4]
 
-                    result_elem = WebDriverWait(row, 5).until(EC.presence_of_element_located((By.CLASS_NAME, 'result')))
+                    result_elem = WebDriverWait(row,5).until(EC.presence_of_element_located((By.CLASS_NAME, 'result')))
                     result = result_elem.text
-                    match_url = WebDriverWait(result_elem, 5).until(
-                        EC.presence_of_element_located((By.TAG_NAME, 'a'))).get_attribute('href')
-                    week_list += [
-                        [season, date, kick_off, status, home_team, home_team_id, result, away_team, away_team_id,
-                         match_url]]
+                    match_url = WebDriverWait(result_elem,5).until(EC.presence_of_element_located((By.TAG_NAME, 'a'))).get_attribute('href')
+                    week_list+=[[season, date, kick_off, status, home_team, home_team_id, result, away_team, away_team_id, match_url]]
         except:
             time.sleep(uniform(2, 5))
-            match_table = WebDriverWait(driver, 15).until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, '#tournament-fixture > div')))[0]
-            rows = WebDriverWait(match_table, 15).until(
-                EC.presence_of_all_elements_located((By.CLASS_NAME, 'divtable-row')))
+            match_table = WebDriverWait(driver,15).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '#tournament-fixture > div')))[0]
+            rows = WebDriverWait(match_table,15).until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'divtable-row')))
             week_list = []
             for row in rows:
                 try:
                     date = pd.to_datetime(row.text).date()
                 except:
-                    kick_off = WebDriverWait(row, 5).until(EC.presence_of_element_located((By.CLASS_NAME, 'time'))).text
+                    kick_off = WebDriverWait(row,5).until(EC.presence_of_element_located((By.CLASS_NAME, 'time'))).text
 
-                    status = WebDriverWait(row, 5).until(EC.presence_of_element_located((By.CLASS_NAME, 'status'))).text
+                    status = WebDriverWait(row,5).until(EC.presence_of_element_located((By.CLASS_NAME, 'status'))).text
                     if status == ' ':
                         status = 'upcoming'
 
-                    home_team_elem = WebDriverWait(row, 5).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, 'home'))).find_element(By.TAG_NAME, 'a')
+                    home_team_elem = WebDriverWait(row,5).until(EC.presence_of_element_located((By.CLASS_NAME, 'home'))).find_element(By.TAG_NAME, 'a')
                     home_team = home_team_elem.text
                     home_team_id = home_team_elem.get_attribute('href').split('/')[4]
 
-                    away_team_elem = WebDriverWait(row, 5).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, 'away'))).find_element(By.TAG_NAME, 'a')
+                    away_team_elem = WebDriverWait(row,5).until(EC.presence_of_element_located((By.CLASS_NAME, 'away'))).find_element(By.TAG_NAME, 'a')
                     away_team = away_team_elem.text
                     away_team_id = away_team_elem.get_attribute('href').split('/')[4]
 
-                    result_elem = WebDriverWait(row, 5).until(EC.presence_of_element_located((By.CLASS_NAME, 'result')))
+                    result_elem = WebDriverWait(row,5).until(EC.presence_of_element_located((By.CLASS_NAME, 'result')))
                     result = result_elem.text
-                    match_url = WebDriverWait(result_elem, 5).until(
-                        EC.presence_of_element_located((By.TAG_NAME, 'a'))).get_attribute('href')
-                    week_list += [
-                        [season, date, kick_off, status, home_team, home_team_id, result, away_team, away_team_id,
-                         match_url]]
-        season_match_sche_list += week_list
+                    match_url = WebDriverWait(result_elem,5).until(EC.presence_of_element_located((By.TAG_NAME, 'a'))).get_attribute('href')
+                    week_list+=[[season, date, kick_off, status, home_team, home_team_id, result, away_team, away_team_id, match_url]]
+        season_match_sche_list+=week_list
         if next_week_button.get_attribute('title') in no_data_list:
             keep_clicking = False
             break
         next_week_button.click()
-
+    
     return season_match_sche_list
-
 
 def scrape_schedule_multi_season(seasons_list=None, url=None, driver=None, options=None, supervised=True) -> list:
     if options is None:
@@ -282,7 +266,7 @@ def scrape_schedule_multi_season(seasons_list=None, url=None, driver=None, optio
     total_iter = 0
     season_success = []
     while keep_scraping:
-        total_iter += 1
+        total_iter+=1
         season_fail = []
         prev_season_successful = True
         consecutive_fail_num = 0
@@ -295,26 +279,24 @@ def scrape_schedule_multi_season(seasons_list=None, url=None, driver=None, optio
                     print("Driver closed. Scraping stopped.")
                     keep_scraping = False
                     break
-
-                single_season_schedule_list += scrape_schedule_single_season(season=season, url=url, driver=driver,
-                                                                             options=options, url_loaded=True)
+                    
+                single_season_schedule_list+=scrape_schedule_single_season(season=season, url=url, driver=driver, options=options, url_loaded=True)
                 prev_url_successful = True
                 consecutive_fail_num = 0
                 season_success.append(season)
             except:
                 try:
                     time.sleep(uniform(3, 6))
-                    single_season_schedule_list += scrape_schedule_single_season(season=season, url=url, driver=driver,
-                                                                                 options=options)
+                    single_season_schedule_list+=scrape_schedule_single_season(season=season, url=url, driver=driver, options=options)
                     prev_season_successful = True
                     consecutive_fail_num = 0
                     season_success.append(season)
                 except:
                     season_fail.append(season)
                     print(f"total seasons missed {len(season_fail)}")
-
+                    
                     if prev_season_successful is False:
-                        consecutive_fail_num += 1
+                        consecutive_fail_num+=1
                         print(f"consecutive seasons missed {consecutive_fail_num}")
                         if consecutive_fail_num >= 2 and supervised is False:
                             keep_scraping = False
@@ -324,7 +306,7 @@ def scrape_schedule_multi_season(seasons_list=None, url=None, driver=None, optio
                             break
                     prev_season_successful = False
                     continue
-            all_schedule_list += single_season_schedule_list
+            all_schedule_list+=single_season_schedule_list
         if total_iter >= 2:
             keep_scraping = False
         if season_fail != []:
@@ -333,36 +315,30 @@ def scrape_schedule_multi_season(seasons_list=None, url=None, driver=None, optio
             keep_scraping = False
         print(f"Total Iter: {total_iter}")
     season_missed = [a for a in seasons_list if a not in season_success]
-    print(
-        f"Scrape Complete. Total iter: {total_iter}. Season failed: {len(season_fail)}. Season succeeded: {len(season_success)}. Total missed: {len(season_missed)}")
+    print(f"Scrape Complete. Total iter: {total_iter}. Season failed: {len(season_fail)}. Season succeeded: {len(season_success)}. Total missed: {len(season_missed)}")
     return all_schedule_list, season_missed
 
-
-# Scrape player match stats
-
-def scrape_incidents_single_match(url=None, season=None, driver=None, options=None, url_loaded=False) -> list:
+def scrape_incidents_single_match(url=None, driver=None, options=None, url_loaded=False) -> list:
     if options is None:
         options = webdriver.ChromeOptions()
         options.add_argument('log-level=3')
         # options.add_argument("--headless")
     if driver is None:
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-    if not url_loaded:
-        driver.get(url)
-    else:
+    if url_loaded:
         url = driver.current_url
-
+    else:
+        driver.get(url)
+        
     match_id = int(url.split('/')[4])
-
-    player_sum_page = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, \
-                                                                                     '#sub-sub-navigation > ul > li:nth-child(1) > a')))
-    incidents_elem_table = WebDriverWait(driver, 5).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, '#live-incidents')))
+    season = WebDriverWait(driver,5).until(EC.presence_of_element_located((By.CSS_SELECTOR, '#breadcrumb-nav > a'))).text.split(' ')[2]
+    player_sum_page = WebDriverWait(driver,5).until(EC.presence_of_element_located((By.CSS_SELECTOR, \
+                                                '#sub-sub-navigation > ul > li:nth-child(1) > a')))
+    incidents_elem_table = WebDriverWait(driver,5).until(EC.presence_of_element_located((By.CSS_SELECTOR, '#live-incidents')))
 
     incidents_list = []
 
-    incidents_elem_row_list = WebDriverWait(incidents_elem_table, 5).until(
-        EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
+    incidents_elem_row_list = WebDriverWait(incidents_elem_table,5).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
     for row_elem in incidents_elem_row_list:
         row_sub_list = WebDriverWait(row_elem, 5).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'td')))
         for i in [0, 2]:
@@ -374,11 +350,10 @@ def scrape_incidents_single_match(url=None, season=None, driver=None, options=No
                 is_home_incident = False
 
             cell_list = WebDriverWait(row_sub_list[i], 5).until(EC.presence_of_all_elements_located((By.CLASS_NAME, \
-                                                                                                     'match-centre-header-team-key-incident')))
+                                                                    'match-centre-header-team-key-incident')))
             for incident_elem in cell_list:
 
-                player_name = WebDriverWait(incident_elem, 5).until(
-                    EC.presence_of_element_located((By.TAG_NAME, 'a'))).text
+                player_name = WebDriverWait(incident_elem, 5).until(EC.presence_of_element_located((By.TAG_NAME, 'a'))).text
 
                 if player_name == '':
                     continue
@@ -399,8 +374,7 @@ def scrape_incidents_single_match(url=None, season=None, driver=None, options=No
                 incidents_list.append(player_incident_list)
     return incidents_list
 
-
-def scrape_incidents_full_season(league=None, season=None, options=None, supervised=True, url_list=None):
+def scrape_incidents_full_season(league=None, season=None, driver=None, options=None, supervised=True, url_list=None):
     if options is None:
         options = webdriver.ChromeOptions()
         options.add_argument('log-level=3')
@@ -411,37 +385,46 @@ def scrape_incidents_full_season(league=None, season=None, options=None, supervi
         url_to_scrape = league[season]
     else:
         url_to_scrape = url_list
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    if driver is None:
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     keep_scraping = True
     total_iter = 0
     url_success = []
     while keep_scraping:
-        total_iter += 1
+        total_iter+=1
         url_fail = []
         prev_url_successful = True
         consecutive_fail_num = 0
         for url in tqdm(url_to_scrape):
             try:
-                full_season_incidents_list += scrape_incidents_single_match(url, season, driver=driver, options=options)
+                driver.current_url
+            except:
+                print("Driver closed. Scraping stopped.")
+                keep_scraping = False
+                break
+            try:
+                full_season_incidents_list+=scrape_incidents_single_match(url, driver=driver, options=options)
                 prev_url_successful = True
                 consecutive_fail_num = 0
                 url_success.append(url)
             except:
                 try:
                     time.sleep(uniform(3, 6))
-                    full_season_incidents_list += scrape_incidents_single_match(url, season, driver=driver,
-                                                                                options=options)
+                    full_season_incidents_list+=scrape_incidents_single_match(url, driver=driver, options=options)
                     prev_url_successful = True
                     consecutive_fail_num = 0
                     url_success.append(url)
                 except:
                     url_fail.append(url)
                     print(f"total url missed {len(url_fail)}")
-
-                    if supervised is False and prev_url_successful is False:
-                        consecutive_fail_num += 1
+                    
+                    if prev_url_successful is False:
+                        consecutive_fail_num+=1
                         print(f"consecutive url missed {consecutive_fail_num}")
-                        if consecutive_fail_num >= 10:
+                        if consecutive_fail_num >= 10 and supervised is False:
+                            keep_scraping = False
+                            break
+                        elif consecutive_fail_num >= 30 and supervised is True:
                             keep_scraping = False
                             break
                     prev_url_successful = False
@@ -456,13 +439,36 @@ def scrape_incidents_full_season(league=None, season=None, options=None, supervi
             keep_scraping = False
         print(f"Total Iter: {total_iter}")
     url_missed = [a for a in url_to_scrape if a not in url_success]
-    print(
-        f"Scrape Complete. Total iter: {total_iter}. Total url fail: {len(url_fail)}. Total url success: {len(url_success)}")
+    print(f"Scrape Complete. Total iter: {total_iter}. Total url fail: {len(url_fail)}. Total url success: {len(url_success)}")
     return full_season_incidents_list, url_missed
 
+def incidents_super_scrape(driver=None, options=None, supervised=True, url_list=None, chunk_size=400) -> list:
+    if options is None:
+        options = webdriver.ChromeOptions()
+        options.add_argument('log-level=3')
+        # options.add_argument("--headless")
+    if driver is None:
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    all_scraped_list = []
+    all_missed_list = []
+    chunked_list = [url_list[i:i+chunk_size] for i in range(0, len(url_list), chunk_size)]
+    for i, chunk in enumerate(tqdm(chunked_list)):
+        try:
+            driver.current_url
+        except:
+            print("Driver closed. Scraping stopped.")
+            break
+        scraped_list, missed_list = scrape_incidents_full_season(driver=driver, options=options, supervised=supervised, url_list=chunk)
+        all_scraped_list+=scraped_list
+        all_missed_list+=missed_list
+        
+    if i != len(chunked_list)-1:
+        for ii in range(len(chunked_list) -1 - i):
+            all_missed_list+=chunked_list[i+ii+1]
+    print(f"Super scrape complete. Missed: {len(all_missed_list)}")
+    return all_scraped_list, all_missed_list
 
-def scrape_player_stats_single_match(url=None, season=None, driver=None, options=None, cur_date=None,
-                                     url_loaded=False) -> list:
+def scrape_player_stats_single_match(url=None, season=None, driver=None, options=None, cur_date=None, url_loaded=False) -> list:
     if cur_date is None:
         cur_date = datetime.date.today()
     if options is None:
@@ -476,10 +482,10 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
     else:
         url = driver.current_url
     if season is None:
-        season = WebDriverWait(driver, 5).until(
+        season = WebDriverWait(driver,5).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, '#breadcrumb-nav > a'))
         ).text.split(' ')[2]
-
+    
     match_id = int(url.split('/')[4])
 
     ## Match summary
@@ -491,52 +497,72 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
     full_time_score_selector = '#match-header > table > tbody > tr:nth-child(2) > td:nth-child(2) > div:nth-child(2) > dl > dd:nth-child(4)'
     kick_off_selector = '#match-header > table > tbody > tr:nth-child(2) > td:nth-child(2) > div:nth-child(3) > dl > dd:nth-child(2)'
     date_selector = '#match-header > table > tbody > tr:nth-child(2) > td:nth-child(2) > div:nth-child(3) > dl > dd:nth-child(4)'
-    date = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, date_selector))).text
+    
+    try:
+        date = WebDriverWait(driver,10).until(EC.presence_of_element_located((By.CSS_SELECTOR, date_selector))).text
+    except:
+        date = np.nan
+    try:
+        home_team = WebDriverWait(driver,10).until(EC.presence_of_element_located((By.CSS_SELECTOR, home_team_selector))).text
+    except:
+        home_team = np.nan
+    try:
+        home_team_id = WebDriverWait(driver,7).until(EC.presence_of_element_located((By.CSS_SELECTOR, home_team_selector))).get_attribute('href').split('/')[4]
+    except:
+        home_team_id = np.nan
+    try:
+        away_team = WebDriverWait(driver,7).until(EC.presence_of_element_located((By.CSS_SELECTOR, away_team_selector))).text
+    except:
+        away_team = np.nan
+    try:
+        away_team_id = WebDriverWait(driver,7).until(EC.presence_of_element_located((By.CSS_SELECTOR, away_team_selector))).get_attribute('href').split('/')[4]
+    except:
+        away_team_id = np.nan
+    try:
+        final_score = WebDriverWait(driver,5).until(EC.presence_of_element_located((By.CSS_SELECTOR, final_score_selector))).text
+    except:
+        final_score = np.nan
+    try:
+        time_elapsed = WebDriverWait(driver,5).until(EC.presence_of_element_located((By.CSS_SELECTOR, time_elapsed_selector))).text
+    except:
+        time_elapsed = np.nan
+    try:
+        half_time_score = WebDriverWait(driver,3).until(EC.presence_of_element_located((By.CSS_SELECTOR, half_time_score_selector))).text
+    except:
+        half_time_score = np.nan
+    try:
+        full_time_score = WebDriverWait(driver,3).until(EC.presence_of_element_located((By.CSS_SELECTOR, full_time_score_selector))).text
+    except:
+        full_time_score = np.nan
+    try:
+        kick_off = WebDriverWait(driver,3).until(EC.presence_of_element_located((By.CSS_SELECTOR, kick_off_selector))).text
+    except:
+        kick_off = np.nan
 
-    home_team = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, home_team_selector))).text
-    home_team_id = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, home_team_selector))).get_attribute('href').split('/')[4]
-    away_team = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, away_team_selector))).text
-    away_team_id = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, away_team_selector))).get_attribute('href').split('/')[4]
-    final_score = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, final_score_selector))).text
-    time_elapsed = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, time_elapsed_selector))).text
-    half_time_score = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, half_time_score_selector))).text
-    full_time_score = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, full_time_score_selector))).text
-    kick_off = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, kick_off_selector))).text
-
-    match_sum_col = ['match_id', 'season', 'date', 'kick_off', 'home_team', 'home_team_id', 'away_team', 'away_team_id',
-                     'final_score',
+    match_sum_col = ['match_id', 'season', 'date', 'kick_off', 'home_team', 'home_team_id', 'away_team', 'away_team_id', 'final_score', 
                      'half_time_score', 'full_time_score', 'home_formation', 'away_formation', 'is_home_player']
     sum_col = ['player_name', 'player_id', 'age', 'position', 'DuelAerialWon', 'Touches', 'rating']
-    off_col = ['ShotsTotal', 'ShotOnTarget', 'DribbleWon', 'FoulGiven',
+    off_col = ['ShotsTotal', 'ShotOnTarget', 'DribbleWon', 'FoulGiven', 
                'OffsideGiven', 'Dispossessed', 'Turnover']
     def_col = ['TackleWonTotal', 'InterceptionAll', 'ClearanceTotal', 'ShotBlocked', 'FoulCommitted']
-    pass_col = ['KeyPassTotal', 'TotalPasses', 'PassSuccessInMatch', 'PassCrossTotal', 'PassCrossAccurate',
+    pass_col = ['KeyPassTotal', 'TotalPasses', 'PassSuccessInMatch', 'PassCrossTotal', 'PassCrossAccurate', 
                 'PassLongBallTotal', 'PassLongBallAccurate', 'PassThroughBallTotal', 'PassThroughBallAccurate']
 
     is_home_player = True
 
-    home_formation = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, \
-                                                                                     '#match-centre-header > div:nth-child(1) > div.team-info > div.formation'))).text
-    away_formation = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, \
-                                                                                     '#match-centre-header > div:nth-child(3) > div.team-info > div.formation'))).text
+    home_formation = WebDriverWait(driver,15).until(EC.presence_of_element_located((By.CSS_SELECTOR, \
+                            '#match-centre-header > div:nth-child(1) > div.team-info > div.formation'))).text
+    away_formation = WebDriverWait(driver,15).until(EC.presence_of_element_located((By.CSS_SELECTOR, \
+                            '#match-centre-header > div:nth-child(3) > div.team-info > div.formation'))).text
+    
+    
+    match_sum_arr = np.array([match_id, season, date, kick_off, home_team, home_team_id, away_team, away_team_id, final_score, 
+                              half_time_score, full_time_score, home_formation, away_formation, is_home_player])
 
-    match_sum_arr = np.array(
-        [match_id, season, date, kick_off, home_team, home_team_id, away_team, away_team_id, final_score,
-         half_time_score, full_time_score, home_formation, away_formation, is_home_player])
-
-    player_stats_page = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, \
-                                                                                        '#sub-sub-navigation > ul > li:nth-child(2) > a')))
+    player_stats_page = WebDriverWait(driver,15).until(EC.presence_of_element_located((By.CSS_SELECTOR, \
+                                                '#sub-sub-navigation > ul > li:nth-child(2) > a')))
     player_stats_page.click()
-
+    
     ## Player Stats
     # loop through home and away stats
     for side in ['home', 'away']:
@@ -548,7 +574,7 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
         sum_stats_body_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[2]/div[2]/div/table/tbody'
         off_stats_body_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[4]/div[2]/div/table/tbody'
         def_stats_body_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[3]/div[2]/div/table/tbody'
-        pass_stats_body_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[5]/div[2]/div/table/tbody'
+        pass_stats_body_xpath = f'/html/body/div[5]/div[3]/div[3]/div[{side_xpath_index}]/div[5]/div[2]/div/table/tbody'    
         sum_button_selector = f'#live-player-{side}-options > li:nth-child(1) > a'
         off_button_selector = f'#live-player-{side}-options > li:nth-child(2) > a'
         def_button_selector = f'#live-player-{side}-options > li:nth-child(3) > a'
@@ -564,39 +590,31 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
         stats_body_selector = '#player-table-statistics-body'
 
         #### Summary
-        summary_button = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, sum_button_selector)))
+        summary_button = WebDriverWait(driver,10).until(EC.presence_of_element_located((By.CSS_SELECTOR, sum_button_selector)))
         summary_button.click()
-        sum_table = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, sum_table_selector)))
-        sum_stats_body = WebDriverWait(sum_table, 5).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, stats_body_selector)))
-        row_elem_list = WebDriverWait(sum_stats_body, 15).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'tr')))
+        sum_table = WebDriverWait(driver,15).until(EC.presence_of_element_located((By.CSS_SELECTOR, sum_table_selector)))
+        sum_stats_body = WebDriverWait(sum_table,5).until(EC.presence_of_element_located((By.CSS_SELECTOR, stats_body_selector)))
+        row_elem_list = WebDriverWait(sum_stats_body,15).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'tr')))
 
         sum_arr = []
         for row in row_elem_list:
-            player_name = row.find_elements(By.TAG_NAME, 'span')[0].text
+            player_name =  row.find_elements(By.TAG_NAME, 'span')[0].text
             player_id = row.find_element(By.TAG_NAME, 'a').get_attribute('href').split('/')[4]
             age = row.find_elements(By.TAG_NAME, 'span')[3].text
             position = row.find_elements(By.TAG_NAME, 'span')[4].text.split(' ')[1]
             DuelAerialWon = row.find_element(By.CLASS_NAME, 'DuelAerialWon').text
             Touches = row.find_element(By.CLASS_NAME, 'Touches').text
             rating = row.find_element(By.CLASS_NAME, 'rating').text
-
+            
             sum_arr += [[player_name, player_id, age, position, DuelAerialWon, Touches, rating]]
         sum_arr = np.array(sum_arr)
 
         #### Offensive
-        off_button = WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, off_button_selector)))
+        off_button = WebDriverWait(driver,5).until(EC.presence_of_element_located((By.CSS_SELECTOR, off_button_selector)))
         off_button.click()
-        off_table = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, off_table_selector)))
-        off_stats_body = WebDriverWait(off_table, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, stats_body_selector)))
-        row_elem_list = WebDriverWait(off_stats_body, 15).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'tr')))
+        off_table = WebDriverWait(driver,15).until(EC.presence_of_element_located((By.CSS_SELECTOR, off_table_selector)))
+        off_stats_body = WebDriverWait(off_table,15).until(EC.presence_of_element_located((By.CSS_SELECTOR, stats_body_selector)))
+        row_elem_list = WebDriverWait(off_stats_body,15).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'tr')))
 
         off_arr = []
         for row in row_elem_list:
@@ -609,21 +627,18 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
             Turnover = row.find_element(By.CLASS_NAME, 'Turnover').text
 
             off_arr += [[ShotsTotal, ShotOnTarget, DribbleWon, FoulGiven,
-                         OffsideGiven, Dispossessed, Turnover]]
+                             OffsideGiven, Dispossessed, Turnover]]
 
         off_arr = np.array(off_arr)
         #### Defensive
 
-        def_button = WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, def_button_selector)))
+        def_button = WebDriverWait(driver,5).until(EC.presence_of_element_located((By.CSS_SELECTOR, def_button_selector)))
         def_button.click()
 
-        def_table = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, def_table_selector)))
-        def_stats_body = WebDriverWait(def_table, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, stats_body_selector)))
-        row_elem_list = WebDriverWait(def_stats_body, 15).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'tr')))
+
+        def_table = WebDriverWait(driver,15).until(EC.presence_of_element_located((By.CSS_SELECTOR, def_table_selector)))
+        def_stats_body = WebDriverWait(def_table,15).until(EC.presence_of_element_located((By.CSS_SELECTOR, stats_body_selector)))
+        row_elem_list = WebDriverWait(def_stats_body,15).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'tr')))
 
         def_arr = []
         for row in row_elem_list:
@@ -635,17 +650,13 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
 
             def_arr += [[TackleWonTotal, InterceptionAll, ClearanceTotal, ShotBlocked, FoulCommitted]]
         def_arr = np.array(def_arr)
-
+        
         #### Passing
-        pass_button = WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, pass_button_selector)))
+        pass_button = WebDriverWait(driver,5).until(EC.presence_of_element_located((By.CSS_SELECTOR, pass_button_selector)))
         pass_button.click()
-        pass_table = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, pass_table_selector)))
-        pass_stats_body = WebDriverWait(pass_table, 15).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, stats_body_selector)))
-        row_elem_list = WebDriverWait(pass_stats_body, 15).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'tr')))
+        pass_table = WebDriverWait(driver,15).until(EC.presence_of_element_located((By.CSS_SELECTOR, pass_table_selector)))
+        pass_stats_body = WebDriverWait(pass_table,15).until(EC.presence_of_element_located((By.CSS_SELECTOR, stats_body_selector)))
+        row_elem_list = WebDriverWait(pass_stats_body,15).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'tr')))
         pass_arr = []
         for row in row_elem_list:
             KeyPassTotal = row.find_element(By.CLASS_NAME, 'KeyPassTotal').text
@@ -658,8 +669,8 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
             PassThroughBallTotal = row.find_element(By.CLASS_NAME, 'PassThroughBallTotal').text
             PassThroughBallAccurate = row.find_element(By.CLASS_NAME, 'PassThroughBallAccurate').text
 
-            pass_arr += [[KeyPassTotal, TotalPasses, PassSuccessInMatch, PassCrossTotal, PassCrossAccurate,
-                          PassLongBallTotal, PassLongBallAccurate, PassThroughBallTotal, PassThroughBallAccurate, url]]
+            pass_arr += [[KeyPassTotal, TotalPasses, PassSuccessInMatch, PassCrossTotal, PassCrossAccurate, 
+                        PassLongBallTotal, PassLongBallAccurate, PassThroughBallTotal, PassThroughBallAccurate, url]]
 
         pass_arr = np.array(pass_arr)
 
@@ -678,7 +689,6 @@ def scrape_player_stats_single_match(url=None, season=None, driver=None, options
 
     return match_stats_arr.tolist()
 
-
 def scrape_player_stats_full_season(season=None, driver=None, options=None, supervised=True, url_list=None) -> list:
     if options is None:
         options = webdriver.ChromeOptions()
@@ -694,7 +704,7 @@ def scrape_player_stats_full_season(season=None, driver=None, options=None, supe
     total_iter = 0
     url_success = []
     while keep_scraping:
-        total_iter += 1
+        total_iter+=1
         url_fail = []
         prev_url_successful = True
         consecutive_fail_num = 0
@@ -706,25 +716,23 @@ def scrape_player_stats_full_season(season=None, driver=None, options=None, supe
                     print("Driver closed. Scraping stopped.")
                     keep_scraping = False
                     break
-                full_season_match_list += scrape_player_stats_single_match(url=url, season=season, driver=driver,
-                                                                           options=options)
+                full_season_match_list+=scrape_player_stats_single_match(url=url, season=season, driver=driver, options=options)
                 prev_url_successful = True
                 consecutive_fail_num = 0
                 url_success.append(url)
             except:
                 try:
                     time.sleep(uniform(3, 6))
-                    full_season_match_list += scrape_player_stats_single_match(url=url, season=season, driver=driver,
-                                                                               options=options)
+                    full_season_match_list+=scrape_player_stats_single_match(url=url, season=season, driver=driver, options=options)
                     prev_url_successful = True
                     consecutive_fail_num = 0
                     url_success.append(url)
                 except:
                     url_fail.append(url)
                     print(f"total url missed {len(url_fail)}")
-
+                    
                     if prev_url_successful is False:
-                        consecutive_fail_num += 1
+                        consecutive_fail_num+=1
                         print(f"consecutive url missed {consecutive_fail_num}")
                         if consecutive_fail_num >= 10 and supervised is False:
                             keep_scraping = False
@@ -742,10 +750,8 @@ def scrape_player_stats_full_season(season=None, driver=None, options=None, supe
             keep_scraping = False
         print(f"Total Iter: {total_iter}")
     url_missed = [a for a in url_list if a not in url_success]
-    print(
-        f"Scrape Complete. Total iter: {total_iter}. Total url fail: {len(url_fail)}. Total url success: {len(url_success)}")
+    print(f"Scrape Complete. Total iter: {total_iter}. Total url fail: {len(url_fail)}. Total url success: {len(url_success)}")
     return full_season_match_list, url_missed
-
 
 def player_stats_super_scrape(driver=None, options=None, supervised=True, url_list=None, chunk_size=400) -> list:
     if options is None:
@@ -756,20 +762,19 @@ def player_stats_super_scrape(driver=None, options=None, supervised=True, url_li
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     all_scraped_list = []
     all_missed_list = []
-    chunked_list = [url_list[i:i + chunk_size] for i in range(0, len(url_list), chunk_size)]
+    chunked_list = [url_list[i:i+chunk_size] for i in range(0, len(url_list), chunk_size)]
     for i, chunk in enumerate(tqdm(chunked_list)):
         try:
             driver.current_url
         except:
             print("Driver closed. Scraping stopped.")
             break
-        scraped_list, missed_list = scrape_player_stats_full_season(driver=driver, options=options,
-                                                                    supervised=supervised, url_list=chunk)
-        all_scraped_list += scraped_list
-        all_missed_list += missed_list
-
-    if i != len(chunked_list) - 1:
-        for ii in range(len(chunked_list) - 1 - i):
-            all_missed_list += chunked_list[i + ii + 1]
-    print(f"Super scrape complete. Success: {len(all_scraped_list)}. Missed: {len(all_missed_list)}")
+        scraped_list, missed_list = scrape_player_stats_full_season(driver=driver, options=options, supervised=supervised, url_list=chunk)
+        all_scraped_list+=scraped_list
+        all_missed_list+=missed_list
+        
+    if i != len(chunked_list)-1:
+        for ii in range(len(chunked_list) -1 - i):
+            all_missed_list+=chunked_list[i+ii+1]
+    print(f"Super scrape complete. Missed: {len(all_missed_list)}")
     return all_scraped_list, all_missed_list
