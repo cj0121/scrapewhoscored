@@ -1,1 +1,2 @@
-from .main import convert_schedule_df
+from scrapewhoscored.main import *
+
